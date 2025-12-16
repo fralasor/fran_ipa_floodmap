@@ -1,0 +1,234 @@
+import streamlit as st
+import numpy as np
+import rasterio
+import matplotlib.pyplot as plt
+from rasterio.io import MemoryFile
+from rasterio.transform import Affine
+from streamlit_image_coordinates import streamlit_image_coordinates
+from scipy.ndimage import uniform_filter
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.patches import Patch
+
+# --------------------------------------------------
+# CONFIG
+# --------------------------------------------------
+st.set_page_config(layout="wide")
+st.title("Flood Mapping using Sentinel Imagery")
+st.text("Generate flood maps and raster masks using Sentinel-1 SAR and Sentinel-2 optical imagery.")
+st.caption("Created by Francine Soriano for IPA. Sample images show impacts of Typhoon Tino (4 Nov 2025) to Bago City, Philippines.")
+
+# FUNCTIONS ---------------------------------------
+
+def read_uploaded_raster(uploaded_file):
+    with MemoryFile(uploaded_file.read()) as memfile:
+        with memfile.open() as src:
+            data = src.read()
+            profile = src.profile
+    # print("####### SENTINEL IMAGES AY", type(data), data.shape)
+    return data, profile
+
+def db_to_linear(db_array):
+    """Convert dB to linear scale, skipping NaNs."""
+    lin = np.full_like(db_array, np.nan, dtype=np.float32)
+    mask = ~np.isnan(db_array)
+    lin[mask] = 10 ** (db_array[mask] / 10)
+    return lin
+
+def linear_to_db(lin_array):
+    """Convert linear to dB safely, avoiding log(0)."""
+    db = np.full_like(lin_array, np.nan, dtype=np.float32)
+    mask = ~np.isnan(lin_array)
+    db[mask] = 10 * np.log10(np.maximum(lin_array[mask], 1e-8))
+    return db
+
+def lee_filter(img, size):
+    """Lee speckle filter with NaN handling."""
+    # Replace NaNs with 0 temporarily for convolution
+    img_filled = np.nan_to_num(img, nan=0.0)
+    
+    # Local mean and variance
+    mean = uniform_filter(img_filled, size)
+    mean_sq = uniform_filter(img_filled**2, size)
+    var = mean_sq - mean**2
+    
+    # Noise variance
+    noise_var = np.nanmean(var)
+    
+    # Lee weighting
+    w = var / (var + noise_var)
+    result = mean + w * (img_filled - mean)
+    
+    # Restore NaNs for NoData
+    result[np.isnan(img)] = np.nan
+    return result
+
+
+# FILE UPLOADS -------------------------------------------------- 
+
+st.header("Upload images")
+st.subheader("Sentinel-1 Peak Flood")
+s1_peak_file = st.file_uploader("The Sentinel-1 Image RIGHT AFTER the typhoon arrival date captures the areas that experienced peak flooding.", type=["tif", "tiff"], help="Sentinel-1 Image closest to typhoon arrival date")
+s1_peak_date = st.date_input("Enter peak-flood image capture date", value="today")
+st.subheader("Sentinel-1 Post Flood")
+s1_post_file = st.file_uploader("The Sentinel-1 Image AFTER THE PEAK FLOOD captures the areas where flooding has not subsided yet.", type=["tif", "tiff"])
+s1_post_date = st.date_input("Enter post-flood image capture date", value="today")
+st.subheader("Sentinel 2 for Basemap")
+s2_file   = st.file_uploader("Sentinel-2 RGB (Current version assumes that the raster only contains bands 2, 3, & 4 to minimize file size.)", type=["tif", "tiff"])
+
+st.markdown("---")
+
+st.header("Flood Mask Parameters")
+vv_thresh = st.slider(
+    "Select VV thresholds for Water (Default values have been set to the standard water threshold for Sentinel-1 VV images)",
+    min_value=-50.0, max_value=1.0, value=(-20.0, -15.0),
+    format="%0.3f"
+)
+
+mask_opacity = st.slider("Mask opacity", min_value=0.0, max_value=1.0, value=1.0)
+
+load_imgs = st.button("Load images", type="secondary")
+despeckle = st.button("Despeckle images", type="secondary")
+generate = st.button("Generate mask", type="primary")
+
+st.markdown("---")
+
+# --------------------------------------------------
+# LOAD DATA
+# --------------------------------------------------
+if not (s1_peak_file and s1_post_file and s2_file):
+    st.info("Upload two Sentinel-1 VV images and one Sentinel-2 RGB image.")
+    st.stop()
+
+s1_1, s1_profile = read_uploaded_raster(s1_peak_file)
+s1_2, _          = read_uploaded_raster(s1_post_file)
+s2,   s2_profile = read_uploaded_raster(s2_file)
+
+# assumes VV is first band
+s1_peak = s1_1[0] 
+s1_post = s1_2[0]
+# assumes bands are in order B2, B3, B4
+s2_rgb = np.transpose(s2[:3], (1, 2, 0))
+
+# --------------------------------------------------
+# TOP ROW: SENTINEL-1
+# --------------------------------------------------
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader(f"Sentinel-1 - {s1_peak_date} (VV)")
+    fig1, ax1 = plt.subplots()
+    # ax1.imshow(s1_peak, cmap="gray", vmin=-25, vmax=5)
+    # ax1.imshow(mask_peak, cmap="Blues", alpha=mask_opacity)
+    ax1.axis("off")
+    # st.pyplot(fig1)
+
+with col2:
+    st.subheader(f"Sentinel-1 - {s1_peak_date} (VV)")
+    fig2, ax2 = plt.subplots()
+    # ax2.imshow(s1_post, cmap="gray", vmin=-25, vmax=5)
+    # ax2.imshow(mask_post, cmap="Blues", alpha=mask_opacity)
+    ax2.axis("off")
+    # st.pyplot(fig2)
+
+col3, col4 = st.columns(2)
+with col3:
+    # st.subheader(f"Sentinel-1 - {s1_peak_date} (VV)")
+    fig3, ax3 = plt.subplots()
+    ax3.axis("off")
+
+with col4:
+    # st.subheader(f"Sentinel-1 - {s1_peak_date} (VV)")
+    fig4, ax4 = plt.subplots()
+    ax4.axis("off")
+
+s1_peak_despeckled = linear_to_db(lee_filter(db_to_linear(s1_peak), size=5))
+s1_post_despeckled = linear_to_db(lee_filter(db_to_linear(s1_post), size=5))
+
+# WHEN LOAD IMAGES BUTTON IS CLICKED --------------------------------------------------
+if load_imgs:
+    with col1:
+        ax1.imshow(s1_peak, cmap="Blues", vmin=-25, vmax=5)
+        st.pyplot(fig1, clear_figure=False)
+    
+    with col2:
+        ax2.imshow(s1_post, cmap="Blues", vmin=-25, vmax=5)
+        st.pyplot(fig2, clear_figure=False)
+
+
+# WHEN DESPECKLE BUTTON IS CLICKED --------------------------------------------------
+if despeckle:
+    st.text("Applying uniform filter to reduce speckle noise in S1 images")
+
+    with col3:
+        ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
+        st.pyplot(fig3, clear_figure=False)
+    
+    with col4:
+        ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
+        st.pyplot(fig4, clear_figure=False)
+
+# --------------------------------------------------
+# BOTTOM PANEL: INTERACTIVE DISPLAY
+# --------------------------------------------------
+st.subheader("Sentinel-2 with Sentinel-1 Flood Mask")
+
+# Create composite image
+fig5, ax5 = plt.subplots(figsize=(10, 6))
+ax5.axis("off")
+
+# WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
+
+mask_peak, mask_post, mask_rgb = None, None, None
+if generate:
+    mask_peak = ( (s1_peak > vv_thresh[0]) & (s1_peak < vv_thresh[1]) ).astype(np.uint8) # VV VV > 0 AND VV < 0.025 
+    mask_peak = np.where(mask_peak == 1, 1, np.nan)
+    mask_post = ( (s1_post > vv_thresh[0]) & (s1_post < vv_thresh[1]) ).astype(np.uint8)
+    mask_post = np.where(mask_post == 1, 1, np.nan)
+    
+    """
+    1 = water in peak flood only
+    10 = water in post flood only
+    11 = water in both
+    0 = no water
+    """
+    mask_rgb = mask_peak + mask_post*10
+    mask_rgb = np.where(mask_rgb > 0, mask_rgb, np.nan)
+    
+    col3, col4 = st.columns(2)
+    legend_elements = [Patch(facecolor="red", edgecolor="black", label="Water")]
+    with col3:
+        ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
+        ax3.imshow(mask_peak, cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
+        ax3.legend(handles=legend_elements, loc="lower right", frameon=True)
+        st.pyplot(fig3, clear_figure=False)
+    
+    with col4:
+        ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
+        ax4.imshow(mask_post, cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
+        ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
+        st.pyplot(fig4, clear_figure=False)
+    
+    colors = ["red", "yellow", "fuchsia"]  # 0/NaN, 1, 10, 11
+    bounds = [1, 10, 11, 12]
+    cmap = ListedColormap(colors)
+    norm = BoundaryNorm(bounds, cmap.N)
+    ax5.imshow(s2_rgb)
+    ax5.imshow(mask_rgb, cmap=cmap, norm=norm, alpha=mask_opacity)
+    ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
+    legend_elements = [
+        Patch(facecolor="red", edgecolor="black", label="1 = Peak flood only"),
+        Patch(facecolor="yellow", edgecolor="black", label="10 = Post-flood only"),
+        Patch(facecolor="fuchsia", edgecolor="black", label="11 = Persistent water"),
+    ]
+    ax5.legend(handles=legend_elements, loc="lower right", frameon=True, title="Flood Class")
+    st.pyplot(fig5, clear_figure=False)
+
+
+# DOWNLOAD FLOOD MASK BUTTON -----------------------------------
+    
+st.download_button(
+    label="Download Flood Mask Raster",
+    data=mask_rgb,
+    file_name="floodmask.tif",
+    mime="image/tiff",
+    type="primary")
