@@ -225,7 +225,8 @@ ax5.axis("off")
 # WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
 
 mask_peak, mask_post, mask_rgb = None, None, None
-mask_rgb_bytes = np.zeros(s1_peak.shape)
+mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape), s1_profile)
+
 if "show_mask" not in st.session_state:
     st.session_state.show_mask = False
 
@@ -236,7 +237,7 @@ if st.session_state.show_mask:
     mask_peak = ( (s1_peak > vv_thresh[0]) & (s1_peak < vv_thresh[1]) ).astype(np.uint8) # VV VV > 0 AND VV < 0.025 
     mask_post = ( (s1_post > vv_thresh[0]) & (s1_post < vv_thresh[1]) ).astype(np.uint8)
     mask_rgb = mask_peak + mask_post*10
-    
+    mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
     """
     1 = water in peak flood only
     10 = water in post flood only
