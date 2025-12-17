@@ -253,13 +253,13 @@ if st.session_state.show_mask:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax3.imshow(np.where(mask_peak == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax3.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig3, clear_figure=True)
+        st.pyplot(fig3, clear_figure=False)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax4.imshow(np.where(mask_post == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig4, clear_figure=True)
+        st.pyplot(fig4, clear_figure=False)
     
     colors = ["red", "fuchsia", "yellow"]
     bounds = [0.5, 1.5, 10.5, 11.5]
