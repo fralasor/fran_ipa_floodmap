@@ -207,11 +207,11 @@ if despeckle:
 if st.session_state.show_despeckled:
     with col3:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig3, clear_figure=True)
+        st.pyplot(fig3, clear_figure=False)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig4, clear_figure=True)
+        st.pyplot(fig4, clear_figure=False)
 
 # --------------------------------------------------
 # BOTTOM PANEL: INTERACTIVE DISPLAY
@@ -261,12 +261,13 @@ if st.session_state.show_mask:
         ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
         st.pyplot(fig4, clear_figure=False)
     
+    
     colors = ["red", "fuchsia", "yellow"]
     bounds = [0.5, 1.5, 10.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    ax5.imshow(np.power(s2_rgb, gamma))
-    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0.0, a_max=1.0), cmap=cmap, norm=norm, alpha=mask_opacity)
+    ax5.imshow(np.clip(np.power(s2_rgb, gamma), a_min=0.0, a_max=1.0))
+    ax5.imshow(np.where(mask_rgb > 0, mask_rgb, np.nan), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
         Patch(facecolor="red", edgecolor="black", label="1 = Peak flood only"),
