@@ -221,7 +221,7 @@ ax5.axis("off")
 # WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
 
 mask_peak, mask_post, mask_rgb = None, None, None
-mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape, s1_profile))
+mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape), s1_profile)
 if "show_mask" not in st.session_state:
     st.session_state.show_mask = False
 
