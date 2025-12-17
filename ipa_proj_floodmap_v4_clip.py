@@ -5,7 +5,9 @@ INPUTS: VV bands of Sentinel 1 image during peak and post flood dates. RGB (band
 Images were preprocessed (compositing, mosaicking, cloudmasking) on Google Earth Engine to lessen file size.
 Bands were selected since streamlit crashes when too much data is loaded.
 
-OUTPUTS: Flood mask geotiff. Visualization of flood mask during peak and post flooding.
+OUTPUTS: Flood mask geotiff. Visualization of flood masks during peak and post flooding.
+
+FLOOD MASK PARAMETERS: Default values set in the GUI are the most optimal values.
 
 ChatGPT 4 and 5 was used in creating a template for the Streamlit app and debugging errors regarding the download button, session_states, and matplotlib visualizations.
 
@@ -238,12 +240,11 @@ if st.session_state.show_mask:
     mask_post = ( (s1_post > vv_thresh[0]) & (s1_post < vv_thresh[1]) ).astype(np.uint8)
     mask_rgb = mask_peak + mask_post*10
     
-    """
-    1 = water in peak flood only
-    10 = water in post flood only
-    11 = water in both
-    0 = no water
-    """
+    # 1 = water in peak flood only
+    # 10 = water in post flood only
+    # 11 = water in both
+    # 0 = no water
+    
     mask_rgb = mask_peak + mask_post*10
     mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
     
@@ -253,20 +254,20 @@ if st.session_state.show_mask:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax3.imshow(np.where(mask_peak == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax3.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig3, clear_figure=False)
+        st.pyplot(fig3, clear_figure=False) # needs to be false so that it shows up, since it uses same fig as despeckled
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax4.imshow(np.where(mask_post == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig4, clear_figure=False)
+        st.pyplot(fig4, clear_figure=False) # needs to be false so that it shows up, since it uses same fig as despeckled
     
     
     colors = ["red", "fuchsia", "yellow"]
     bounds = [0.5, 1.5, 10.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    ax5.imshow(np.clip(np.power(s2_rgb, gamma), a_min=0.0, a_max=1.0))
+    ax5.imshow(np.clip(np.power(s2_rgb, gamma), a_min=0.0, a_max=1.0)) # clip to avoid user warning from imshow clipping float to 0,1
     ax5.imshow(np.where(mask_rgb > 0, mask_rgb, np.nan), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
@@ -298,5 +299,5 @@ st.download_button(
     label="Download Flood Mask Raster",
     data=mask_rgb_bytes,
     file_name="floodmask.tif",
-    mime="image/tiff",
+    mime="image/tiff", # mime/mediatype standard
     type="primary")
