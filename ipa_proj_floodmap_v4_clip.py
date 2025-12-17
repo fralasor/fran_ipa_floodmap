@@ -114,7 +114,7 @@ st.markdown("---")
 st.header("Flood Mask Parameters")
 vv_thresh = st.slider(
     "Select VV thresholds for Water (Default values have been set to the standard water threshold for Sentinel-1 VV images)",
-    min_value=-50.0, max_value=1.0, value=(-20.0, -15.0),
+    min_value=-50.0, max_value=1.0, value=(-20.0, -12.5),
     format="%0.3f"
 )
 
@@ -262,7 +262,7 @@ if st.session_state.show_mask:
         st.pyplot(fig4, clear_figure=False)
     
     colors = ["red", "fuchsia", "yellow"]
-    bounds = [0.5, 1.5, 10.5, 11.5]
+    bounds = [0.5, 2.5, 9.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax5.imshow(np.power(s2_rgb, gamma))
