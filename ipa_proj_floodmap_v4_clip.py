@@ -140,8 +140,8 @@ s1_2, _          = read_uploaded_raster(s1_post_file)
 s2,   s2_profile = read_uploaded_raster(s2_file)
 
 # assumes VV is first band
-s1_peak = s1_1
-s1_post = s1_2
+s1_peak = s1_1[0]
+s1_post = s1_2[0]
 
 # changes shape from (band,row,col) to (row,col,band); switches bands 1 and 3 to get RGB from BGR
 s2_rgb = np.transpose(s2, (1, 2, 0))[:, :, ::-1] 
