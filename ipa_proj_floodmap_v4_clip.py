@@ -114,7 +114,7 @@ st.markdown("---")
 st.header("Flood Mask Parameters")
 vv_thresh = st.slider(
     "Select VV thresholds for Water (Default values have been set to the standard water threshold for Sentinel-1 VV images)",
-    min_value=-50.0, max_value=1.0, value=(-20.0, -12.5),
+    min_value=-50.0, max_value=1.0, value=(-20.0, -14.5),
     format="%0.3f"
 )
 
@@ -193,11 +193,11 @@ if load_imgs:
 if st.session_state.show_loaded:
     with col1:
         ax1.imshow(s1_peak, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig1, clear_figure=False)
+        st.pyplot(fig1, clear_figure=True)
     
     with col2:
         ax2.imshow(s1_post, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig2, clear_figure=False)
+        st.pyplot(fig2, clear_figure=True)
 
 
 # WHEN DESPECKLE BUTTON IS CLICKED --------------------------------------------------
@@ -207,11 +207,11 @@ if despeckle:
 if st.session_state.show_despeckled:
     with col3:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig3, clear_figure=False)
+        st.pyplot(fig3, clear_figure=True)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig4, clear_figure=False)
+        st.pyplot(fig4, clear_figure=True)
 
 # --------------------------------------------------
 # BOTTOM PANEL: INTERACTIVE DISPLAY
@@ -237,7 +237,7 @@ if st.session_state.show_mask:
     mask_peak = ( (s1_peak > vv_thresh[0]) & (s1_peak < vv_thresh[1]) ).astype(np.uint8) # VV VV > 0 AND VV < 0.025 
     mask_post = ( (s1_post > vv_thresh[0]) & (s1_post < vv_thresh[1]) ).astype(np.uint8)
     mask_rgb = mask_peak + mask_post*10
-    mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
+    
     """
     1 = water in peak flood only
     10 = water in post flood only
@@ -253,16 +253,16 @@ if st.session_state.show_mask:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax3.imshow(np.where(mask_peak == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax3.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig3, clear_figure=False)
+        st.pyplot(fig3, clear_figure=True)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax4.imshow(np.where(mask_post == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig4, clear_figure=False)
+        st.pyplot(fig4, clear_figure=True)
     
     colors = ["red", "fuchsia", "yellow"]
-    bounds = [0.5, 2.5, 9.5, 11.5]
+    bounds = [0.5, 1.5, 10.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax5.imshow(np.power(s2_rgb, gamma))
@@ -274,7 +274,7 @@ if st.session_state.show_mask:
         Patch(facecolor="yellow", edgecolor="black", label="11 = Persistent water"),
     ]
     ax5.legend(handles=legend_elements, loc="lower right", frameon=True, title="Flood Class")
-    st.pyplot(fig5, clear_figure=False)
+    st.pyplot(fig5, clear_figure=True)
 
     fig6, ax6 = plt.subplots(figsize=(4,3))
     ax6.hist(mask_rgb.flatten(), bins=[i for i in range(1,13)], edgecolor='black')
