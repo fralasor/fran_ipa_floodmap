@@ -76,9 +76,21 @@ def lee_filter(img, size):
     result[np.isnan(img)] = np.nan
     return result
 
-def normalize(band):
-    band_min, band_max = (band.min(), band.max())
-    return ((band-band_min)/((band_max - band_min)))
+def mask_to_geotiff_bytes(mask, reference_profile):
+    memfile = MemoryFile()
+    profile = reference_profile.copy()
+    profile.update(
+        driver="GTiff",
+        dtype=rasterio.uint8,
+        count=1,
+        nodata=0,
+        compress="lzw"
+    )
+
+    with memfile.open(**profile) as dst:
+        dst.write(mask.astype("uint8"), 1)
+
+    return memfile.read()
 
 
 # FILE UPLOADS -------------------------------------------------- 
@@ -208,7 +220,8 @@ ax5.axis("off")
 
 # WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
 
-mask_peak, mask_post, mask_rgb, mask_rgb_bytes = None, None, None, None
+mask_peak, mask_post, mask_rgb = None, None, None
+mask_rgb_bytes = np.zeros(s1_peak.shape)
 if "show_mask" not in st.session_state:
     st.session_state.show_mask = False
 
@@ -227,6 +240,7 @@ if st.session_state.show_mask:
     0 = no water
     """
     mask_rgb = mask_peak + mask_post*10
+    mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
     
     col3, col4 = st.columns(2)
     legend_elements = [Patch(facecolor="red", edgecolor="black", label="Water")]
@@ -247,7 +261,7 @@ if st.session_state.show_mask:
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax5.imshow(np.power(s2_rgb, gamma))
-    ax5.imshow(np.where(mask_rgb > 0, mask_rgb, np.nan), cmap=cmap, norm=norm, alpha=mask_opacity)
+    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0.0, a_max=1.0), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
         Patch(facecolor="red", edgecolor="black", label="1 = Peak flood only"),
@@ -270,21 +284,6 @@ if st.session_state.show_mask:
 
 
 # DOWNLOAD FLOOD MASK BUTTON -----------------------------------
-def mask_to_geotiff_bytes(mask, reference_profile):
-    memfile = MemoryFile()
-    profile = reference_profile.copy()
-    profile.update(
-        driver="GTiff",
-        dtype=rasterio.uint8,
-        count=1,
-        nodata=0,
-        compress="lzw"
-    )
-
-    with memfile.open(**profile) as dst:
-        dst.write(mask.astype("uint8"), 1)
-
-    return memfile.read()
 
 if mask_rgb is not None:
     mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
