@@ -1,8 +1,11 @@
 """
 PURPOSE: Generate flood maps and raster masks using Sentinel-1 SAR and Sentinel-2 optical imagery.
 
-INPUTS: Sentinel 1 image during peak and post flood dates. Monthly composite of Sentinel-2 RGB for overlay.
+INPUTS: VV bands of Sentinel 1 image during peak and post flood dates. RGB (bands 2, 3, 4) of Monthly composite of Sentinel-2 for overlay.
 Images were preprocessed (compositing, mosaicking, cloudmasking) on Google Earth Engine to lessen file size.
+Bands were selected since streamlit crashes when too much data is loaded.
+
+OUTPUTS: Flood mask geotiff. Visualization of flood mask during peak and post flooding.
 
 ChatGPT 4 and 5 was used in creating a template for the Streamlit app and debugging errors regarding the download button, session_states, and matplotlib visualizations.
 
@@ -30,6 +33,7 @@ st.set_page_config(layout="wide")
 st.title("Flood Mapping using Sentinel Imagery")
 st.text("Generate flood maps and raster masks using Sentinel-1 SAR and Sentinel-2 optical imagery.")
 st.caption("Created by Francine Soriano for IPA. Sample images show impacts of Typhoon Tino (4 Nov 2025) to Bago City, Philippines.")
+st.caption("Images were clipped to not exceed streamlit's deployment processing limits for free tier! Bigger images can be loaded by using locally hosted version of GUI.")
 
 # FUNCTIONS ---------------------------------------
 
@@ -103,7 +107,7 @@ st.subheader("Sentinel-1 Post Flood")
 s1_post_file = st.file_uploader("The Sentinel-1 Image AFTER THE PEAK FLOOD captures the areas where flooding has not subsided yet.", type=["tif", "tiff"])
 s1_post_date = st.date_input("Enter post-flood image capture date", value="today")
 st.subheader("Sentinel 2 for Basemap")
-s2_file   = st.file_uploader("Sentinel-2 RGB (Current version assumes that the raster only contains bands 2, 3, 4 & 8 to minimize file size.)", type=["tif", "tiff"])
+s2_file   = st.file_uploader("Sentinel-2 RGB (Current version assumes that the raster only contains bands 2, 3, & 4 to minimize file size.)", type=["tif", "tiff"])
 
 st.markdown("---")
 
@@ -136,11 +140,11 @@ s1_2, _          = read_uploaded_raster(s1_post_file)
 s2,   s2_profile = read_uploaded_raster(s2_file)
 
 # assumes VV is first band
-s1_peak = s1_1[0] 
-s1_post = s1_2[0]
+s1_peak = s1_1
+s1_post = s1_2
 
-# gets first 3 bands since s2 also has nir; changes shape from (band,row,col) to (row,col,band); switches bands 1 and 3 to get RGB from BGR
-s2_rgb = np.transpose(s2[:3], (1, 2, 0))[:, :, ::-1] 
+# changes shape from (band,row,col) to (row,col,band); switches bands 1 and 3 to get RGB from BGR
+s2_rgb = np.transpose(s2, (1, 2, 0))[:, :, ::-1] 
 s2_rgb = s2_rgb/10000 # to scale values from 0 to 1
 
 # TO MAINTAIN LOADED IMAGES ------------------------
@@ -189,11 +193,11 @@ if load_imgs:
 if st.session_state.show_loaded:
     with col1:
         ax1.imshow(s1_peak, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig1, clear_figure=True)
+        st.pyplot(fig1, clear_figure=False)
     
     with col2:
         ax2.imshow(s1_post, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig2, clear_figure=True)
+        st.pyplot(fig2, clear_figure=False)
 
 
 # WHEN DESPECKLE BUTTON IS CLICKED --------------------------------------------------
@@ -203,11 +207,11 @@ if despeckle:
 if st.session_state.show_despeckled:
     with col3:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig3, clear_figure=True)
+        st.pyplot(fig3, clear_figure=False)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
-        st.pyplot(fig4, clear_figure=True)
+        st.pyplot(fig4, clear_figure=False)
 
 # --------------------------------------------------
 # BOTTOM PANEL: INTERACTIVE DISPLAY
@@ -221,7 +225,7 @@ ax5.axis("off")
 # WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
 
 mask_peak, mask_post, mask_rgb = None, None, None
-mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape), s1_profile)
+mask_rgb_bytes = np.zeros(s1_peak.shape)
 if "show_mask" not in st.session_state:
     st.session_state.show_mask = False
 
@@ -248,20 +252,20 @@ if st.session_state.show_mask:
         ax3.imshow(s1_peak_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax3.imshow(np.where(mask_peak == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax3.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig3, clear_figure=True)
+        st.pyplot(fig3, clear_figure=False)
     
     with col4:
         ax4.imshow(s1_post_despeckled, cmap="Blues", vmin=-25, vmax=5)
         ax4.imshow(np.where(mask_post == 1, 1, np.nan), cmap="Reds", vmin=0, vmax=1, alpha=mask_opacity)
         ax4.legend(handles=legend_elements, loc="lower right", frameon=True)
-        st.pyplot(fig4, clear_figure=True)
+        st.pyplot(fig4, clear_figure=False)
     
     colors = ["red", "fuchsia", "yellow"]
     bounds = [0.5, 1.5, 10.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax5.imshow(np.power(s2_rgb, gamma))
-    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0, a_max=1), cmap=cmap, norm=norm, alpha=mask_opacity)
+    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0.0, a_max=1.0), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
         Patch(facecolor="red", edgecolor="black", label="1 = Peak flood only"),
@@ -269,7 +273,7 @@ if st.session_state.show_mask:
         Patch(facecolor="yellow", edgecolor="black", label="11 = Persistent water"),
     ]
     ax5.legend(handles=legend_elements, loc="lower right", frameon=True, title="Flood Class")
-    st.pyplot(fig5, clear_figure=True)
+    st.pyplot(fig5, clear_figure=False)
 
     fig6, ax6 = plt.subplots(figsize=(4,3))
     ax6.hist(mask_rgb.flatten(), bins=[i for i in range(1,13)], edgecolor='black')
