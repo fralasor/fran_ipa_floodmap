@@ -220,14 +220,13 @@ if st.session_state.show_despeckled:
 # --------------------------------------------------
 st.subheader("Sentinel-2 with Sentinel-1 Flood Mask")
 
-# Create composite image
 fig5, ax5 = plt.subplots(figsize=(10, 6))
 ax5.axis("off")
 
 # WHEN GENERATE BUTTON IS CLICKED --------------------------------------------------
 
 mask_peak, mask_post, mask_rgb = None, None, None
-mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape), s1_profile)
+mask_rgb_bytes = mask_to_geotiff_bytes(np.zeros(s1_peak.shape), s1_profile) # empty array para di magerror
 
 if "show_mask" not in st.session_state:
     st.session_state.show_mask = False
@@ -267,7 +266,7 @@ if st.session_state.show_mask:
     bounds = [0.5, 1.5, 10.5, 11.5]
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
-    ax5.imshow(np.clip(np.power(s2_rgb, gamma), a_min=0.0, a_max=1.0)) # clip to avoid user warning from imshow clipping float to 0,1
+    ax5.imshow(np.clip(np.power(s2_rgb, gamma), a_min=0.0, a_max=1.0)) # clip to avoid user warning from imshow clipping float to (0,1)
     ax5.imshow(np.where(mask_rgb > 0, mask_rgb, np.nan), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
@@ -292,8 +291,8 @@ if st.session_state.show_mask:
 
 # DOWNLOAD FLOOD MASK BUTTON -----------------------------------
 
-if mask_rgb is not None:
-    mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile)
+if mask_rgb is not None: # doublecheck
+    mask_rgb_bytes = mask_to_geotiff_bytes(mask_rgb, s1_profile) 
 
 st.download_button(
     label="Download Flood Mask Raster",
