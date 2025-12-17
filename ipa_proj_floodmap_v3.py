@@ -261,7 +261,7 @@ if st.session_state.show_mask:
     cmap = ListedColormap(colors)
     norm = BoundaryNorm(bounds, cmap.N)
     ax5.imshow(np.power(s2_rgb, gamma))
-    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0.0, a_max=1.0), cmap=cmap, norm=norm, alpha=mask_opacity)
+    ax5.imshow(np.clip(np.where(mask_rgb > 0, mask_rgb, np.nan), a_min=0, a_max=1), cmap=cmap, norm=norm, alpha=mask_opacity)
     ax5.set_title(f"Flood Dynamics from {s1_peak_date} to {s1_post_date}")
     legend_elements = [
         Patch(facecolor="red", edgecolor="black", label="1 = Peak flood only"),
